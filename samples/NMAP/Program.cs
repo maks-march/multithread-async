@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 using log4net;
 using log4net.Config;
 
@@ -26,8 +28,11 @@ namespace NMAP
         {
             var konturAddrs = new List<IPAddress>();
             uint focusIpInt = 0x0ACB112E;
-            for(int b = 0; b <= byte.MaxValue; b++)
-                konturAddrs.Add(new IPAddress((focusIpInt & 0x00FFFFFF) | (uint)b << 24));
+            Parallel.ForAsync(0, byte.MaxValue + 1, (i, token) =>
+            {
+                konturAddrs.Add(new IPAddress((focusIpInt & 0x00FFFFFF) | ((uint)i << 24)));
+                return ValueTask.CompletedTask;
+            }).Wait();
             return konturAddrs.ToArray();
         }
     }

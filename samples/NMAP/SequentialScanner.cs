@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -10,39 +11,36 @@ namespace NMAP
 	{
 		protected virtual ILog log => LogManager.GetLogger(typeof(SequentialScanner));
 
-		public virtual Task Scan(IPAddress[] ipAddrs, int[] ports)
+		public async virtual Task Scan(IPAddress[] ipAddrs, int[] ports)
 		{
-			return Task.Run(() =>
+			foreach(var ipAddr in ipAddrs)
 			{
-				foreach(var ipAddr in ipAddrs)
-				{
-					if(PingAddr(ipAddr) != IPStatus.Success)
-						continue;
+				if(await PingAddr(ipAddr) != IPStatus.Success)
+					continue;
 
-					foreach(var port in ports)
-						CheckPort(ipAddr, port);
-				}
-			});
+				foreach(var port in ports)
+					await CheckPort(ipAddr, port);
+			}
 		}
-
-		protected IPStatus PingAddr(IPAddress ipAddr, int timeout = 3000)
+		
+		protected async Task<IPStatus> PingAddr(IPAddress ipAddr, int timeout = 3000)
 		{
-			log.Info($"Pinging {ipAddr}");
+			Console.Out.WriteLineAsync($"Pinging {ipAddr}");
 			using(var ping = new Ping())
 			{
-				var status = ping.Send(ipAddr, timeout).Status;
-				log.Info($"Pinged {ipAddr}: {status}");
-				return status;
+				var status = await ping.SendPingAsync(ipAddr, timeout);
+				Console.Out.WriteLineAsync($"Pinged {ipAddr}: {status.Status}");
+				return status.Status;
 			}
 		}
 
-		protected void CheckPort(IPAddress ipAddr, int port, int timeout = 3000)
+		protected async Task CheckPort(IPAddress ipAddr, int port, int timeout = 3000)
 		{
 			using(var tcpClient = new TcpClient())
 			{
-				log.Info($"Checking {ipAddr}:{port}");
+				Console.Out.WriteLineAsync($"Checking {ipAddr}:{port}");
 
-				var connectTask = tcpClient.ConnectWithTimeout(ipAddr, port, timeout);
+				var connectTask = await tcpClient.ConnectWithTimeoutAsync(ipAddr, port, timeout);
 				PortStatus portStatus;
 				switch(connectTask.Status)
 				{
@@ -56,7 +54,7 @@ namespace NMAP
 						portStatus = PortStatus.FILTERED;
 						break;
 				}
-				log.Info($"Checked {ipAddr}:{port} - {portStatus}");
+				Console.Out.WriteLineAsync($"Checked {ipAddr}:{port} - {portStatus}");
 			}
 		}
 	}
